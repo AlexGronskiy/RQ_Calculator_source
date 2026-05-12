@@ -1,0 +1,12 @@
+QWidget { background: #1b1b1b; color: #e5e5e5; }
+QGroupBox { border: 1px solid #444; margin-top: 8px; }
+QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; color: #c59f6f; }
+QLabel { color: #e5e5e5; }
+QTabBar::tab { background: #2a2a2a; padding: 6px 10px; border: 1px solid #444; margin-right: 4px; }
+QTabBar::tab:selected { background: #3a3a3a; }
+QLineEdit, QComboBox, QSpinBox { background: #2a2a2a; border: 1px solid #555; padding: 4px; }
+QPushButton { background: #2f2f2f; border: 1px solid #555; padding: 6px; }
+/* индивидуальная обводка слотов + hover */
+#slotcell { border: 1px solid #555; background: #1f1f1f; border-radius: 6px; }
+#slotcell:hover { border-color: #c59f6f; box-shadow: 0 0 0 1px #c59f6f inset; }
+
