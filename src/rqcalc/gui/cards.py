@@ -1808,10 +1808,19 @@ class CardsWindow(QWidget):
         return self._rect_from_tuple(WEAPON_ZONE_CLEAR if self._kind == "weapon" else EQUIP_ZONE_CLEAR)
 
     def _apply_current_selection(self) -> None:
-        # помечаем, что изменения подтверждены
+        """
+        Подтверждает текущий выбор карт.
+
+        ВАЖНО:
+        Раньше после Apply сначала эмитился item_cache_changed, а потом дополнительно
+        card_picked/card_cleared по каждому слоту. Для weapon это давало сразу 3
+        дополнительных сигнала и несколько тяжёлых пересчётов подряд.
+
+        Теперь источник истины один: _set_item_cards_cache() -> item_cache_changed.
+        MainWindow сам синхронизирует item["_cards"] и запускает один отложенный пересчёт.
+        """
         self._session_applied = True
 
-        # фиксируем состояние как «применённое» для этого предмета
         key = self._current_item_key_value()
         self._current_item_key = key
 
@@ -1823,26 +1832,25 @@ class CardsWindow(QWidget):
                 reason="apply_current_selection",
             )
 
-        # снапшот для последующего Cancel, если потом снова откроем окно
-        self._session_backup_cards = {k: dict(v) for k, v in self._selected_cards.items()}
-        self._session_backup_pms = dict(self._selected_card_pms)
+        self._session_backup_cards = {
+            k: dict(v)
+            for k, v in (self._selected_cards or {}).items()
+        }
+        self._session_backup_pms = dict(self._selected_card_pms or {})
 
-        # закрыть попап, если открыт
         if self._picker_popup is not None:
             try:
                 self._picker_popup.hide()
             except Exception:
                 pass
 
+        # Закрываем окно. _session_applied=True, поэтому _close_and_emit()
+        # не откатит выбранные карты.
         self._close_and_emit()
 
-        # “сохранить” наружу текущее состояние по всем слотам
-        for idx in range(1, self._max_slots_for_kind() + 1):
-            card = self._selected_cards.get(idx)
-            if card:
-                self.card_picked.emit(idx, dict(card))
-            else:
-                self.card_cleared.emit(idx)
+        # Старые сигналы card_picked/card_cleared здесь специально НЕ эмитим.
+        # Иначе для оружия получаем несколько пересчётов подряд:
+        # slot1 picked + slot2 cleared + slot3 cleared.
 
     def _clear_all_slots(self) -> None:
         # закрыть попап, если открыт

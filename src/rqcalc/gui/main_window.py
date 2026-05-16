@@ -11863,12 +11863,38 @@ class MainWindow(QWidget):
 
     def _on_item_cache_changed(self, *_args) -> None:
         """
-        Реакция на любое подтверждённое изменение CardsWindow._per_item_cards.
+        Реакция на подтверждённое изменение CardsWindow._per_item_cards.
+
+        Этот метод теперь является основным путём после Apply в окне карт:
+          1) синхронизирует CardsWindow._per_item_cards обратно в self._selected_items;
+          2) обновляет иконку предмета, где менялись карты;
+          3) обновляет offhand overlay, если это оружейный слот;
+          4) запускает один отложенный пересчёт характеристик.
         """
+        cw = getattr(self, "cards_window", None)
+
+        slot_key = ""
+        try:
+            slot_key = str(getattr(cw, "_item_slot_key", "") or "").strip()
+        except Exception:
+            slot_key = ""
+
         try:
             self._sync_cards_cache_into_selected_items()
         except Exception:
             pass
+
+        if slot_key:
+            try:
+                self._update_slot_icon(slot_key)
+            except Exception:
+                pass
+
+            if slot_key in ("weapon", "offhand"):
+                try:
+                    self._update_offhand_overlay(refresh_icon=False)
+                except Exception:
+                    pass
 
         try:
             self._sync_buff_debuff_menu_context()
