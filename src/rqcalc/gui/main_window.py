@@ -6882,6 +6882,27 @@ class MainWindow(QWidget):
 
             self._inv_shield = None
 
+        # После удаления inv-shield обязательно пересчитываем глобальную блокировку.
+        # Иначе _block_main_input может остаться True после _remove_stamp_shield().
+        try:
+            still_blocked = bool(
+                self._reforge_shield_active()
+                or self._stamp_shield_active()
+            )
+        except Exception:
+            still_blocked = False
+
+        try:
+            self._block_main_input = bool(still_blocked)
+        except Exception:
+            pass
+
+        if not still_blocked:
+            try:
+                self._block_allow_root = None
+            except Exception:
+                pass
+
     # замените существующую версию
     def _open_cards_menu(
             self,
@@ -7017,27 +7038,88 @@ class MainWindow(QWidget):
     def _on_cards_closed(self) -> None:
         """
         Закрытие окна карт: снимаем все щиты и возвращаем hover.
+
+        ВАЖНО:
+        Сначала снимаем щит инвентаря, потом основной stamp/cards shield.
+        Иначе _remove_stamp_shield() видит активный _inv_shield и оставляет
+        _block_main_input=True, после чего программа выглядит зависшей.
         """
         try:
-            self._remove_stamp_shield()
+            cw = getattr(self, "cards_window", None)
+            if cw is not None and cw.isVisible():
+                cw.hide()
         except Exception:
             pass
 
+        try:
+            menu = getattr(getattr(self, "cards_window", None), "_choose_card_menu", None)
+            if menu is not None:
+                menu.hide()
+        except Exception:
+            pass
+
+        try:
+            popup = getattr(getattr(self, "cards_window", None), "_picker_popup", None)
+            if popup is not None:
+                popup.hide()
+        except Exception:
+            pass
+
+        # Сначала инвентарь.
         try:
             self._remove_inventory_shield()
         except Exception:
             pass
 
+        # Потом основной щит.
         try:
-            if hasattr(self, "_hover_timer") and not self._hover_timer.isActive():
-                self._hover_timer.start()
+            self._remove_stamp_shield()
         except Exception:
             pass
 
+        # Финальная страховка состояния блокировки.
         try:
-            self._update_glow_from_global()
+            still_blocked = bool(
+                self._reforge_shield_active()
+                or self._stamp_shield_active()
+                or self._inventory_shield_active()
+            )
+        except Exception:
+            still_blocked = False
+
+        try:
+            self._block_main_input = bool(still_blocked)
         except Exception:
             pass
+
+        if not still_blocked:
+            try:
+                self._block_allow_root = None
+            except Exception:
+                pass
+
+            try:
+                ht = getattr(self, "_hover_timer", None)
+                if ht is not None and not ht.isActive():
+                    ht.start()
+            except Exception:
+                pass
+
+            try:
+                QTimer.singleShot(50, self._refresh_hover_after_modal)
+            except Exception:
+                try:
+                    QTimer.singleShot(50, self._update_glow_from_global)
+                except Exception:
+                    pass
+        else:
+            for nm in ("menu_glow", "hover_glow", "winbtn_hover", "hover_name_label"):
+                try:
+                    w = getattr(self, nm, None)
+                    if w is not None:
+                        w.hide()
+                except Exception:
+                    pass
 
     def _etype_name_by_id(self, tid: int) -> str:
         """
